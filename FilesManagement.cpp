@@ -1,57 +1,52 @@
-#include <windows.h>
 #include <iostream>
 #include <vector>
+#include <filesystem>
+#include <chrono>
+#include <iomanip>
 
 using namespace std;
+namespace fs = std::filesystem;
 
 struct FileInfo {
     wstring filename;
     wstring extension;
-    ULONGLONG size = 0;  // Initialize to 0
-    FILETIME creationTime = {};  // Initialize to empty FILETIME
-    FILETIME modificationTime = {};  // Initialize to empty FILETIME
+    uintmax_t size = 0; 
+    fs::file_time_type creationTime = {}; 
+    fs::file_time_type modificationTime = {};  
 };
 
 vector<FileInfo> GetFilesInDirectory(const wstring& directory) {
     vector<FileInfo> files;
 
-    wstring searchPath = directory + L"\\*.*";
-    WIN32_FIND_DATA findFileData;
-    HANDLE hFind = FindFirstFile(searchPath.c_str(), &findFileData);
-
-    if (hFind == INVALID_HANDLE_VALUE) {
-        wcerr << L"Error opening directory: " << directory << endl;
-        return files;
-    }
-
-    do {
-        if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-            // Ignore "." and ".." directories
-            if (wcscmp(findFileData.cFileName, L".") != 0 && wcscmp(findFileData.cFileName, L"..") != 0) {
+    try {
+        for (const auto& entry : fs::directory_iterator(directory)) {
+            if (fs::is_directory(entry)) {
                 // Recursively get files from subdirectory
-                wstring subdirectory = directory + L"\\" + findFileData.cFileName;
+                wstring subdirectory = entry.path().wstring();
                 vector<FileInfo> subdirectoryFiles = GetFilesInDirectory(subdirectory);
                 files.insert(files.end(), subdirectoryFiles.begin(), subdirectoryFiles.end());
             }
-        }
-        else {
-            FileInfo fileInfo;
-            fileInfo.filename = findFileData.cFileName;
-            fileInfo.size = (static_cast<ULONGLONG>(findFileData.nFileSizeHigh) << 32) | findFileData.nFileSizeLow;
-            fileInfo.creationTime = findFileData.ftCreationTime;
-            fileInfo.modificationTime = findFileData.ftLastWriteTime;
+            else {
+                FileInfo fileInfo;
+                fileInfo.filename = entry.path().filename().wstring();
+                fileInfo.size = fs::file_size(entry);
+                fileInfo.creationTime = fs::last_write_time(entry);
+                fileInfo.modificationTime = fs::last_write_time(entry);
 
-            // Extract extension from filename
-            size_t pos = fileInfo.filename.rfind(L'.');
-            if (pos != wstring::npos) {
-                fileInfo.extension = fileInfo.filename.substr(pos + 1);
+                // Extract extension from filename
+                size_t pos = fileInfo.filename.rfind(L'.');
+                if (pos != wstring::npos) {
+                    fileInfo.extension = fileInfo.filename.substr(pos + 1);
+                }
+
+                files.push_back(fileInfo);
             }
-
-            files.push_back(fileInfo);
         }
-    } while (FindNextFile(hFind, &findFileData) != 0);
+    }
+    catch (const fs::filesystem_error& e) {
+        wcerr << L"Error opening directory: " << e.what() << endl;
+    }
 
-    FindClose(hFind);
     return files;
 }
 
@@ -65,23 +60,24 @@ int main() {
         wcout << L"Extension: " << file.extension << endl;
         wcout << L"Size: " << file.size << L" bytes" << endl;
 
-        // Convert FILETIME to local time and print
-        SYSTEMTIME creationSystemTime, modificationSystemTime;
-        FileTimeToSystemTime(&file.creationTime, &creationSystemTime);
-        FileTimeToSystemTime(&file.modificationTime, &modificationSystemTime);
+        // Convert file_time_type to local time and print
+        auto creationTimePoint = chrono::time_point_cast<chrono::system_clock::duration>(file.creationTime - fs::file_time_type::clock::now() + chrono::system_clock::now());
+        auto modificationTimePoint = chrono::time_point_cast<chrono::system_clock::duration>(file.modificationTime - fs::file_time_type::clock::now() + chrono::system_clock::now());
 
-        wcout << L"Creation Time: "
-            << creationSystemTime.wYear << L"/" << creationSystemTime.wMonth << L"/" << creationSystemTime.wDay
-            << L" " << creationSystemTime.wHour << L":" << creationSystemTime.wMinute << L":" << creationSystemTime.wSecond << endl;
+        time_t creationTime = chrono::system_clock::to_time_t(creationTimePoint);
+        time_t modificationTime = chrono::system_clock::to_time_t(modificationTimePoint);
 
-        wcout << L"Modification Time: "
-            << modificationSystemTime.wYear << L"/" << modificationSystemTime.wMonth << L"/" << modificationSystemTime.wDay
-            << L" " << modificationSystemTime.wHour << L":" << modificationSystemTime.wMinute << L":" << modificationSystemTime.wSecond << endl;
+        tm creationSystemTime = {};
+        tm modificationSystemTime = {};
+
+        localtime_s(&creationSystemTime, &creationTime);
+        localtime_s(&modificationSystemTime, &modificationTime);
+
+        wcout << L"Creation Time: " << put_time(&creationSystemTime, L"%Y/%m/%d %H:%M:%S") << endl;
+        wcout << L"Modification Time: " << put_time(&modificationSystemTime, L"%Y/%m/%d %H:%M:%S") << endl;
 
         wcout << L"---------------------------" << endl;
     }
 
     return 0;
 }
-
-
