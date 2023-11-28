@@ -1,6 +1,6 @@
 #include <iostream>
-#include <vector>
 #include <filesystem>
+#include <stack>
 #include <chrono>
 #include <iomanip>
 
@@ -10,23 +10,27 @@ namespace fs = std::filesystem;
 struct FileInfo {
     wstring filename;
     wstring extension;
-    uintmax_t size = 0; 
-    fs::file_time_type creationTime = {}; 
-    fs::file_time_type modificationTime = {};  
+    uintmax_t size = 0;
+    fs::file_time_type creationTime = {};
+    fs::file_time_type modificationTime = {};
 };
 
-vector<FileInfo> GetFilesInDirectory(const wstring& directory) {
-    vector<FileInfo> files;
+void ProcessFilesInDirectoryStack(const fs::path& directory, vector<FileInfo>& files) {
+    stack<fs::path> directoryStack;
+    directoryStack.push(directory);
 
-    try {
-        for (const auto& entry : fs::directory_iterator(directory)) {
-            if (fs::is_directory(entry)) {
+    while (!directoryStack.empty()) {
+        fs::path currentDir = directoryStack.top();
+        directoryStack.pop();
+
+        for (const auto& entry : fs::directory_iterator(currentDir)) {
+            if (entry.is_directory()) {
                 // Recursively get files from subdirectory
                 wstring subdirectory = entry.path().wstring();
-                vector<FileInfo> subdirectoryFiles = GetFilesInDirectory(subdirectory);
-                files.insert(files.end(), subdirectoryFiles.begin(), subdirectoryFiles.end());
+                directoryStack.push(subdirectory);
             }
-            else {
+            else if (entry.is_regular_file()) {
+                // Process the file
                 FileInfo fileInfo;
                 fileInfo.filename = entry.path().filename().wstring();
                 fileInfo.size = fs::file_size(entry);
@@ -35,7 +39,7 @@ vector<FileInfo> GetFilesInDirectory(const wstring& directory) {
 
                 // Extract extension from filename
                 size_t pos = fileInfo.filename.rfind(L'.');
-                if (pos != wstring::npos) {
+                if (pos != wstring::npos && pos < fileInfo.filename.size()) {
                     fileInfo.extension = fileInfo.filename.substr(pos + 1);
                 }
 
@@ -43,18 +47,17 @@ vector<FileInfo> GetFilesInDirectory(const wstring& directory) {
             }
         }
     }
-    catch (const fs::filesystem_error& e) {
-        wcerr << L"Error opening directory: " << e.what() << endl;
-    }
-
-    return files;
 }
 
 int main() {
     wstring directory = L"C:\\Users\\User\\Desktop\\VIA_5_sem";
-    vector<FileInfo> files = GetFilesInDirectory(directory);
+    vector<FileInfo> files;
+
+    // Process files and collect information
+    ProcessFilesInDirectoryStack(directory, files);
 
     // Display the retrieved file information
+    wcout << L"\nStack Method:\n";
     for (const auto& file : files) {
         wcout << L"File: " << file.filename << endl;
         wcout << L"Extension: " << file.extension << endl;
@@ -75,7 +78,6 @@ int main() {
 
         wcout << L"Creation Time: " << put_time(&creationSystemTime, L"%Y/%m/%d %H:%M:%S") << endl;
         wcout << L"Modification Time: " << put_time(&modificationSystemTime, L"%Y/%m/%d %H:%M:%S") << endl;
-
         wcout << L"---------------------------" << endl;
     }
 
