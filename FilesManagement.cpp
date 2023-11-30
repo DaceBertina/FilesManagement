@@ -16,6 +16,9 @@ struct FileInfo {
 };
 
 void ProcessFilesInDirectoryStack(const fs::path& directory, vector<FileInfo>& files) {
+    // Measure execution time
+    auto start = chrono::high_resolution_clock::now();
+
     stack<fs::path> directoryStack;
     directoryStack.push(directory);
 
@@ -47,6 +50,13 @@ void ProcessFilesInDirectoryStack(const fs::path& directory, vector<FileInfo>& f
             }
         }
     }
+
+    // Stop measuring time
+    auto stop = chrono::high_resolution_clock::now();
+    auto duration = chrono::duration_cast<chrono::milliseconds>(stop - start);
+
+    // Display the execution time
+    wcout << L"Execution Time: " << duration.count() << L" milliseconds" << endl;
 }
 
 int main() {
@@ -62,17 +72,13 @@ int main() {
         wcout << L"File: " << file.filename << endl;
         wcout << L"Extension: " << file.extension << endl;
         wcout << L"Size: " << file.size << L" bytes" << endl;
-
         // Convert file_time_type to local time and print
         auto creationTimePoint = chrono::time_point_cast<chrono::system_clock::duration>(file.creationTime - fs::file_time_type::clock::now() + chrono::system_clock::now());
         auto modificationTimePoint = chrono::time_point_cast<chrono::system_clock::duration>(file.modificationTime - fs::file_time_type::clock::now() + chrono::system_clock::now());
-
         time_t creationTime = chrono::system_clock::to_time_t(creationTimePoint);
         time_t modificationTime = chrono::system_clock::to_time_t(modificationTimePoint);
-
         tm creationSystemTime = {};
         tm modificationSystemTime = {};
-
         localtime_s(&creationSystemTime, &creationTime);
         localtime_s(&modificationSystemTime, &modificationTime);
 
@@ -80,6 +86,4 @@ int main() {
         wcout << L"Modification Time: " << put_time(&modificationSystemTime, L"%Y/%m/%d %H:%M:%S") << endl;
         wcout << L"---------------------------" << endl;
     }
-
-    return 0;
 }
