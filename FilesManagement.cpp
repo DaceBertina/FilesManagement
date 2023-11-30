@@ -1,6 +1,6 @@
 #include <iostream>
 #include <filesystem>
-#include <stack>
+#include <queue>
 #include <chrono>
 #include <iomanip>
 
@@ -15,22 +15,22 @@ struct FileInfo {
     fs::file_time_type modificationTime = {};
 };
 
-void ProcessFilesInDirectoryStack(const fs::path& directory, vector<FileInfo>& files) {
+void ProcessFilesInDirectoryQueue(const fs::path& directory, vector<FileInfo>& files) {
     // Measure execution time
     auto start = chrono::high_resolution_clock::now();
 
-    stack<fs::path> directoryStack;
-    directoryStack.push(directory);
+    queue<fs::path> directoryQueue;
+    directoryQueue.push(directory);
 
-    while (!directoryStack.empty()) {
-        fs::path currentDir = directoryStack.top();
-        directoryStack.pop();
+    while (!directoryQueue.empty()) {
+        fs::path currentDir = directoryQueue.front();
+        directoryQueue.pop();
 
         for (const auto& entry : fs::directory_iterator(currentDir)) {
             if (entry.is_directory()) {
                 // Recursively get files from subdirectory
                 wstring subdirectory = entry.path().wstring();
-                directoryStack.push(subdirectory);
+                directoryQueue.push(subdirectory);
             }
             else if (entry.is_regular_file()) {
                 // Process the file
@@ -64,10 +64,10 @@ int main() {
     vector<FileInfo> files;
 
     // Process files and collect information
-    ProcessFilesInDirectoryStack(directory, files);
+    ProcessFilesInDirectoryQueue(directory, files);
 
     // Display the retrieved file information
-    wcout << L"\nStack Method:\n";
+    wcout << L"\nQueue Method:\n";
     for (const auto& file : files) {
         wcout << L"File: " << file.filename << endl;
         wcout << L"Extension: " << file.extension << endl;
@@ -86,4 +86,6 @@ int main() {
         wcout << L"Modification Time: " << put_time(&modificationSystemTime, L"%Y/%m/%d %H:%M:%S") << endl;
         wcout << L"---------------------------" << endl;
     }
+
+    return 0;
 }
