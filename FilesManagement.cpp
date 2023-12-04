@@ -1,9 +1,15 @@
 #include <windows.h>
 #include <iostream>
 #include <vector>
-#include <wchar.h>
+#include <algorithm>
 
 using namespace std;
+
+wstring toLower(const wstring& input) {
+    wstring result = input;
+    transform(result.begin(), result.end(), result.begin(), towlower);
+    return result;
+}
 
 struct FileInfo {
     wstring filename;
@@ -51,6 +57,11 @@ vector<FileInfo> GetFilesInDirectory(const wstring& directory) {
         }
     } while (FindNextFile(hFind, &findFileData) != 0);
 
+    DWORD dwError = GetLastError();
+    if (dwError != ERROR_NO_MORE_FILES) {
+        wcerr << L"Error reading directory: " << directory << endl;
+    }
+
     FindClose(hFind);
     return files;
 }
@@ -67,6 +78,8 @@ vector<wstring> SearchFilesByPartialName(const wstring& directory, const wstring
         return matchingFiles;
     }
 
+    wstring lowercasePartialName = toLower(partialName);
+
     do {
         if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
             if (wcscmp(findFileData.cFileName, L".") != 0 && wcscmp(findFileData.cFileName, L"..") != 0) {
@@ -77,32 +90,59 @@ vector<wstring> SearchFilesByPartialName(const wstring& directory, const wstring
         }
         else {
             wstring fileName = findFileData.cFileName;
-            if (_wcsistr(fileName.c_str(), partialName.c_str()) != nullptr) {
-                matchingFiles.push_back(directory + L"\\" + fileName);
+            wstring lowercaseFileName = toLower(fileName);
+
+            if (lowercaseFileName.find(lowercasePartialName) != wstring::npos) {
+                matchingFiles.push_back(directory + L"\\" + findFileData.cFileName);
             }
         }
     } while (FindNextFile(hFind, &findFileData) != 0);
+
+    DWORD dwError = GetLastError();
+    if (dwError != ERROR_NO_MORE_FILES) {
+        wcerr << L"Error reading directory: " << directory << endl;
+    }
 
     FindClose(hFind);
     return matchingFiles;
 }
 
+// Function to sort files by size
+bool CompareFileSize(const FileInfo& a, const FileInfo& b) {
+    return a.size < b.size;
+}
+
+void SortFilesBySize(vector<FileInfo>& files) {
+    sort(files.begin(), files.end(), CompareFileSize);
+}
+
 int main() {
     wstring directory = L"C:\\Users\\User\\Desktop\\VIA_5_sem";
-    wstring partialName = L"cpp";
+    wstring partialName = L"sun";
 
     // Display matching files using Windows API
     vector<wstring> matchingFiles = SearchFilesByPartialName(directory, partialName);
-    wcout << L"Matching Files using Windows API:\n";
-    for (const auto& file : matchingFiles) {
-        wcout << file << endl;
+
+    // Check if matchingFiles is empty and display appropriate message
+    if (matchingFiles.empty()) {
+        wcout << L"No files matching the criteria found in the entire directory tree." << endl;
+    }
+    else {
+        wcout << L"Matching Files using Windows API:\n";
+        for (const auto& file : matchingFiles) {
+            wcout << file << endl;
+        }
     }
 
     // Display retrieved file information using recursive method
     vector<FileInfo> files = GetFilesInDirectory(directory);
-    wcout << L"\nRecursive Method:\n";
+
+    // Sort files by size
+    SortFilesBySize(files);
+
+    wcout << L"\nFiles Sorted by Size:\n";
     for (const auto& file : files) {
-        wcout << L"File: " << file.filename << endl;
+        wprintf(L"File: %s\n", file.filename.c_str());
         wcout << L"Attributes: " << file.attributes << endl;
         wcout << L"Extension: " << file.extension << endl;
         wcout << L"Size: " << file.size << L" bytes" << endl;
