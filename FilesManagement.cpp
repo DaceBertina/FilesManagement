@@ -107,40 +107,125 @@ vector<wstring> SearchFilesByPartialName(const wstring& directory, const wstring
     return matchingFiles;
 }
 
+vector<wstring> SearchFilesByExtension(const wstring& directory, const wstring& extension) {
+    vector<wstring> matchingFiles;
+
+    wstring searchPath = directory + L"\\*.*";
+    WIN32_FIND_DATA findFileData;
+    HANDLE hFind = FindFirstFile(searchPath.c_str(), &findFileData);
+
+    if (hFind == INVALID_HANDLE_VALUE) {
+        wcerr << L"Error opening directory: " << directory << endl;
+        return matchingFiles;
+    }
+
+    do {
+        if (!(findFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
+            wstring fileName = findFileData.cFileName;
+            size_t pos = fileName.rfind(L'.');
+            if (pos != wstring::npos) {
+                wstring fileExtension = fileName.substr(pos + 1);
+                if (toLower(fileExtension) == toLower(extension)) {
+                    matchingFiles.push_back(directory + L"\\" + findFileData.cFileName);
+                }
+            }
+        }
+        else if (wcscmp(findFileData.cFileName, L".") != 0 && wcscmp(findFileData.cFileName, L"..") != 0) {
+            wstring subdirectory = directory + L"\\" + findFileData.cFileName;
+            vector<wstring> subdirectoryFiles = SearchFilesByExtension(subdirectory, extension);
+            matchingFiles.insert(matchingFiles.end(), subdirectoryFiles.begin(), subdirectoryFiles.end());
+        }
+    } while (FindNextFile(hFind, &findFileData) != 0);
+
+    DWORD dwError = GetLastError();
+    if (dwError != ERROR_NO_MORE_FILES) {
+        wcerr << L"Error reading directory: " << directory << endl;
+    }
+
+    FindClose(hFind);
+    return matchingFiles;
+}
+
+
 // Function to sort files by size
 bool CompareFileSize(const FileInfo& a, const FileInfo& b) {
     return a.size < b.size;
+}
+
+// Function to sort files by creation time
+bool CompareFileCreationTime(const FileInfo& a, const FileInfo& b) {
+    return CompareFileTime(&a.creationTime, &b.creationTime) < 0;
+}
+
+// Function to sort files by modification time
+bool CompareFileModificationTime(const FileInfo& a, const FileInfo& b) {
+    return CompareFileTime(&a.modificationTime, &b.modificationTime) < 0;
 }
 
 void SortFilesBySize(vector<FileInfo>& files) {
     sort(files.begin(), files.end(), CompareFileSize);
 }
 
+void SortFilesByCreationTime(vector<FileInfo>& files) {
+    sort(files.begin(), files.end(), CompareFileCreationTime);
+}
+
+void SortFilesByModificationTime(vector<FileInfo>& files) {
+    sort(files.begin(), files.end(), CompareFileModificationTime);
+}
+
 int main() {
     wstring directory = L"C:\\Users\\User\\Desktop\\VIA_5_sem";
-    wstring partialName = L"sun";
+    wstring partialName = L"sun"; // Specify the partial file name for searching
+    wstring extension = L"sql";  // Specify the desired extension for searching
 
-    // Display matching files using Windows API
-    vector<wstring> matchingFiles = SearchFilesByPartialName(directory, partialName);
+    // Uncomment the respective lines to use particular search methods
+
+    // Search files by partial name
+    /*
+    vector<wstring> matchingFilesByName = SearchFilesByPartialName(directory, partialName);
+    wcout << L"Matching files searching by partial file name:\n";
+    for (const auto& file : matchingFilesByName) {
+        wcout << file << endl;
+    }
+    */
+
+    // Search files by extension
+    vector<wstring> matchingFilesByExtension = SearchFilesByExtension(directory, extension);
+    wcout << L"Matching files searching by file extension:\n";
+    for (const auto& file : matchingFilesByExtension) {
+        wcout << file << endl;
+    }
 
     // Check if matchingFiles is empty and display appropriate message
-    if (matchingFiles.empty()) {
+    if (matchingFilesByExtension.empty()) {
         wcout << L"No files matching the criteria found in the entire directory tree." << endl;
-    }
-    else {
-        wcout << L"Matching Files using Windows API:\n";
-        for (const auto& file : matchingFiles) {
-            wcout << file << endl;
-        }
+        wcout << endl; // Add an extra empty line
     }
 
     // Display retrieved file information using recursive method
     vector<FileInfo> files = GetFilesInDirectory(directory);
 
-    // Sort files by size
-    SortFilesBySize(files);
+    // Uncomment the respective lines to use particular sorting methods
 
-    wcout << L"\nFiles Sorted by Size:\n";
+    // Sort files by size
+    /*
+    SortFilesBySize(files);
+    wcout << L"\nFiles sorted by size:\n";
+    */
+
+    // Sort files by creation time
+    /*
+    SortFilesByCreationTime(files);
+    wcout << L"\nFiles sorted by creation time:\n";
+    */
+
+    // Sort files by modification time
+    /*
+    SortFilesByModificationTime(files);
+    wcout << L"\nFiles sorted by modification time:\n";
+    */
+    wcout << endl; // Add an extra empty line
     for (const auto& file : files) {
         wprintf(L"File: %s\n", file.filename.c_str());
         wcout << L"Attributes: " << file.attributes << endl;
