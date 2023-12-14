@@ -104,8 +104,10 @@ bool ExtensionPredicate(const WIN32_FIND_DATA& findFileData, const wstring& file
             return toLower(fileExtension) == toLower(extension);
         }
     }
-    // If the item is a directory or has no extension, return false
-    return false;
+    else {
+        // If the item is a directory or has no extension, return false
+        return false;
+    }
 }
 
 // Template function to search files based on a custom predicate
@@ -157,7 +159,7 @@ vector<wstring> SearchFiles(const wstring& directory, Predicate predicate) {
     return matchingFiles;
 }
 
-/* This method points out that there is no options to find file by creation date only
+/* This method points out that there are no options to find file by creation date only
 bool CreationTimePredicate(const WIN32_FIND_DATA& findFileData, const wstring& filePath, const FILETIME& creationTimeToFind) {
     int comparisonResult = CompareFileTime(&findFileData.ftCreationTime, &creationTimeToFind);
     wcout << L"Comparison result: " << comparisonResult << endl;
@@ -224,10 +226,10 @@ int main() {
     wstring extension = L"sql";  // Specify the desired extension for searching
     
     // Uncomment the respective lines to use particular search methods
-    /*
+    
     // Search files by partial name
     auto searchStart = chrono::high_resolution_clock::now();
-    vector<wstring> matchingFiles = SearchFiles(directory, [&](const WIN32_FIND_DATA& findFileData, const wstring& filePath) {
+    vector<wstring> nameFiles = SearchFiles(directory, [&](const WIN32_FIND_DATA& findFileData, const wstring& filePath) {
         return PartialNamePredicate(findFileData, filePath, partialName);
         });
     auto searchStop = chrono::high_resolution_clock::now();
@@ -237,28 +239,33 @@ int main() {
     wcout << L"Search Time: " << searchDuration.count() << L" milliseconds\n\n";
 
     wcout << L"Matching files searching by partial file name:\n";
-    for (const auto& file : matchingFiles) {
+    for (const auto& file : nameFiles) {
         wcout << file << endl;
-    } */
+    } 
+
+    // Check if matchingFiles is empty and display appropriate message
+    if (nameFiles.empty()) {
+        wcout << L"No files matching the partial name" << partialName << " in the entire directory tree." << endl;
+        wcout << endl; // Add an extra empty line
+    }
 
     // Search files by extension
-    
-    vector<wstring> matchingFiles = SearchFiles(directory, [&](const WIN32_FIND_DATA& findFileData, const wstring& filePath) {
+    /*
+    vector<wstring> extensionFiles = SearchFiles(directory, [&](const WIN32_FIND_DATA& findFileData, const wstring& filePath) {
         return ExtensionPredicate(findFileData, filePath, extension);
         });
     wcout << L"Matching files searching by file extension:\n";
     
-    wcout << L"Matching files searching by creation time:\n";
-    for (const auto& file : matchingFiles) {
+        for (const auto& file : extensionFiles) {
         wcout << file << endl;
     }
     
     // Check if matchingFiles is empty and display appropriate message
-    if (matchingFiles.empty()) {
-        wcout << L"No files matching the criteria found in the entire directory tree." << endl;
+    if (extensionFiles.empty()) {
+        wcout << L"No files matching the extension" << extension << " in the entire directory tree." << endl;
         wcout << endl; // Add an extra empty line
     }
-
+    */
     // Display retrieved file information using recursive method
     auto getFilesStart = chrono::high_resolution_clock::now();
     vector<FileInfo> files = GetFilesInDirectory(directory);
@@ -268,17 +275,20 @@ int main() {
     auto getFilesStop = chrono::high_resolution_clock::now();
     auto getFilesDuration = chrono::duration_cast<chrono::milliseconds>(getFilesStop - getFilesStart);
     // Display time taken for files listing
-    wcout << L"GetFiles Time: " << getFilesDuration.count() << L" milliseconds\n\n";
+    wcout << endl; // Add an extra empty line
+    wcout << L"GetFiles Time: " << getFilesDuration.count() << L" milliseconds\n";
 
     // Uncomment the respective lines to use particular sorting methods
 
     // Sort files by size
-    /* SortFiles(files, [](const FileInfo& a, const FileInfo& b) {
-        return a.size < b.size;
-        });
     wcout << L"\nFiles sorted by size:\n";
-    */
-
+    auto sortStart = chrono::high_resolution_clock::now();
+    SortFiles(files, [](const FileInfo& a, const FileInfo& b) {
+      return a.size < b.size;
+      });
+    auto sortStop = chrono::high_resolution_clock::now();
+    auto sortDuration = chrono::duration_cast<chrono::milliseconds>(sortStop - sortStart);
+   
     // Sort files by creation time
     /*
     SortFiles(files, [](const FileInfo& a, const FileInfo& b) {
@@ -287,22 +297,22 @@ int main() {
     wcout << L"\nFiles sorted by creation time:\n";
     */
 
+    /*
     // Sort files by modification time
     
     SortFiles(files, [](const FileInfo& a, const FileInfo& b) {
         return CompareFileTime(&a.modificationTime, &b.modificationTime) < 0;
     });
     wcout << L"\nFiles sorted by modification time:\n";
+    */
     
     /*
     // Sort files by extension
-    auto sortStart = chrono::high_resolution_clock::now();
+   
     SortFiles(files, [](const FileInfo& a, const FileInfo& b) {
         return toLower(a.extension) < toLower(b.extension);
         });
-    auto sortStop = chrono::high_resolution_clock::now();
-    auto sortDuration = chrono::duration_cast<chrono::milliseconds>(sortStop - sortStart);
-
+   
     wcout << L"\nFiles sorted by extension:\n"; */
 
     wcout << endl; // Add an extra empty line
